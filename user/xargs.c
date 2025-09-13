@@ -15,7 +15,7 @@ main(int argc, char *argv[])
   int i;
   
   if(argc < 2) {
-    fprintf(2, "usage: xargs command [args...]\n");
+    fprintf(2, "usage: xargs command\n");
     exit(1);
   }
   
