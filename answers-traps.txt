@@ -2,3 +2,20 @@ Which registers contain arguments to functions? For example, which register hold
     A0-a7
 
 Where is the call to function f in the assembly code for main? Where is the call to g? 
+    there isnt really a call, the compiler inlined the function and optimized it, so: li	a1,12
+
+At what address is the function printf located?
+    00000000000006bc
+
+What value is in the register ra just after the jalr to printf in main?
+  30:	68c000ef          	jal	6bc <printf>
+
+what is the output? 
+    He110 World
+
+In the following code, what is going to be printed after 'y='?
+    what ever is next in memory
+
+Why does this happen?
+    it throws a warning in the compiler but im guessing prinf doesnt check for the number of arguments it has. so it assumes that you gave it two arguments and looks for the ones right next to eachother in memory
+    
