@@ -1,0 +1,4 @@
+Which registers contain arguments to functions? For example, which register holds 13 in main's call to printf?
+    A0-a7
+
+Where is the call to function f in the assembly code for main? Where is the call to g? 
