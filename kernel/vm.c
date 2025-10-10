@@ -204,9 +204,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     sz = PGSIZE;
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0) {
-      printf("va=%ld pte=%ld\n", a, *pte);
-      panic("uvmunmap: not mapped");
+    if((*pte & PTE_V) == 0) { //CHANGED
+      *pte = 0;
+      continue;
     }
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
@@ -263,6 +263,20 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
   oldsz = PGROUNDUP(oldsz);
   for(a = oldsz; a < newsz; a += sz){
     sz = PGSIZE;
+
+
+    //CHANGED
+    struct proc *current = myproc();
+    if(current != 0 && pagetable == current->pagetable && PGROUNDUP(current->sz) == oldsz){
+      pte_t *pte = walk(pagetable, a, 1);
+      if(pte == 0){
+        uvmdealloc(pagetable, a, oldsz);
+        return 0;
+      }
+      uint64 fake_pa = PHYSTOP + a; 
+      *pte = PA2PTE(fake_pa) | PTE_U | PTE_R | xperm;
+      continue;
+    }
     mem = kalloc();
     if(mem == 0){
       uvmdealloc(pagetable, a, oldsz);
@@ -367,7 +381,77 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   return -1;
 }
 
-// mark a PTE invalid for user access.
+
+int
+handle_page_fault(uint64 fault_va, uint64 scause)
+{
+  struct proc *p = myproc();
+  uint64 va = PGROUNDDOWN(fault_va);
+  pte_t *pte;
+
+  if(va >= MAXVA){
+    printf("BRRRUUUU");
+    setkilled(p);
+    return -1;
+  }
+  pte = walk(p->pagetable, va, 0);
+  if(pte == 0){
+    printf("KAKAKAKAPP");
+    setkilled(p);
+    return -1;
+  }
+
+  // not usr access
+  if((*pte & PTE_U) == 0){
+    printf("WWAAAAAA");
+    setkilled(p);
+    return -1;
+  }
+
+  // must write
+  if(scause == 15 && ((*pte & PTE_W) == 0)){
+    printf("OOOOPPPP");
+    setkilled(p);
+    return -1;
+  }
+
+  // already valid
+  if((*pte & PTE_V) != 0){
+    printf("LILILILI");
+    setkilled(p);
+    return -1;
+  }
+
+  uint64 pte_pa = PTE2PA(*pte);
+  if(pte_pa < PHYSTOP){
+    printf("ERERERERERE");
+    setkilled(p);
+    return -1;
+  }
+
+  if(va >= p->sz){
+    printf("HRMMRMR");
+    setkilled(p);
+    return -1;
+  }
+
+
+  uint64 expected_pa = PHYSTOP + va;
+  if(pte_pa != expected_pa){
+    printf("JAJAAJMMMMM");
+    setkilled(p);
+    return -1;
+  }
+
+  // allocate
+  char *mem = kalloc();
+  memset(mem, 0, PGSIZE);
+  *pte = PA2PTE((uint64)mem) | PTE_V | PTE_R | PTE_W | PTE_U;
+
+  return 0;
+}
+
+
 // used by exec for the user stack guard page.
 void
 uvmclear(pagetable_t pagetable, uint64 va)
@@ -486,11 +570,35 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   }
 }
 
-
+// CHANGED
 #ifdef LAB_PGTBL
+static void
+vmprint_walk(pagetable_t pagetable, int level, uint64 base) {
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) == 0){
+      continue;
+    }
+
+    uint64 va = base | (((uint64)i) << PXSHIFT(level));
+    int depth = 3 - level;
+    for(int d = 0; d < depth; d++)
+      printf(" ..");
+
+    printf("%p: pte %p pa %p\n", (void*)va, (void*)pte, (void*)PTE2PA(pte));
+
+
+    if(!PTE_LEAF(pte)){
+      uint64 child = PTE2PA(pte);
+      vmprint_walk((pagetable_t)child, level-1, va);
+    }
+  }
+}
+
 void
 vmprint(pagetable_t pagetable) {
-  // your code here
+  printf("page table %p\n", pagetable);
+  vmprint_walk(pagetable, 2, 0);
 }
 #endif
 

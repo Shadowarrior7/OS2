@@ -1,0 +1,42 @@
+inspect user table
+
+
+1: va 0x0 pte 0x21FC885B pa 0x87F22000 perm 0x5B
+2: va 0x1000 pte 0x21FC7C1B pa 0x87F1F000 perm 0x1B
+3: va 0x2000 pte 0x21FC7817 pa 0x87F1E000 perm 0x17
+4: va 0x3000 pte 0x21FC7407 pa 0x87F1D000 perm 0x7
+5: va 0x4000 pte 0x21FC70D7 pa 0x87F1C000 perm 0xD7
+6: va 0x5000 pte 0x0 pa 0x0 perm 0x0
+7: va 0x6000 pte 0x0 pa 0x0 perm 0x0
+8: va 0x7000 pte 0x0 pa 0x0 perm 0x0
+9: va 0x8000 pte 0x0 pa 0x0 perm 0x0
+10: va 0x9000 pte 0x0 pa 0x0 perm 0x0
+11: va 0xFFFF6000 pte 0x0 pa 0x0 perm 0x0
+12: va 0xFFFF7000 pte 0x0 pa 0x0 perm 0x0
+13: va 0xFFFF8000 pte 0x0 pa 0x0 perm 0x0
+14: va 0xFFFF9000 pte 0x0 pa 0x0 perm 0x0
+15: va 0xFFFFA000 pte 0x0 pa 0x0 perm 0x0
+16: va 0xFFFFB000 pte 0x0 pa 0x0 perm 0x0
+17: va 0xFFFFC000 pte 0x0 pa 0x0 perm 0x0
+18: va 0xFFFFD000 pte 0x0 pa 0x0 perm 0x0
+19: va 0xFFFFE000 pte 0x21FD54C7 pa 0x87F55000 perm 0xC7
+20: va 0xFFFFF000 pte 0x2000184B pa 0x80006000 perm 0x4B
+
+
+explinations:
+
+1: maps virtual address 0x0 to page table entry 21FC885B at physical address 87F22000 with permissions VRXUA
+2: maps virtual address 0x1000 to page table entry 21FC7C1B at physical address 87F1F000 with permissions VRXU
+3: maps virtual address 0x2000 to page table entry 21FC7817 at physical address 0x87F1E000 with permissions VRWU
+4: maps virtual address 0x3000 to page table entry 0x21FC7407 at physical address 0x87F1D000 with permissions VRW
+5: maps virtual address 0x4000 to page table entry 0x21FC70D7 at physical address 0x87F1C000 with permissions VRWUDA
+6 - 18 : are unmapped pages with varring virtual addresses and no permissions set
+19: maps virtual address 0xFFFFE000 to page table entry 0x21FD54C7 at physical address 0x87F55000 with permissions VRWDA
+20: maps virtual address 0xFFFFF000 to page table entry 0x2000184B at physical address 0x80006000 with permissions VRXA
+
+
+
+Which other xv6 system call(s) could be made faster using this shared page? Explain how.
+- maybe what files are being accessed and changed when switching context.
+- time might be usful or maybe ticks as this is updated frequently.
+- really anything that is changed a lot and needs to be accessed by both the kernel and the user space, thus speeding up system calls, so they dont have to switch context all the time

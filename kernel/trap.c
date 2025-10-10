@@ -50,6 +50,20 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
+
+  //CHANGED
+  uint64 scause = r_scause();
+  if (scause == 12 || scause == 13 || scause == 15) {
+    uint64 stval = r_stval();
+    
+    if(handle_page_fault(stval, scause) != 0){
+      printf("fault handle: kill pid=%d va=0x%lx scause=%ld\n", p->pid, stval, scause);
+    } else {
+      goto handled_pagefault;
+    }
+  }
+
+
   if(r_scause() == 8){
     // system call
 
@@ -80,6 +94,13 @@ usertrap(void)
   if(which_dev == 2)
     yield();
 
+  usertrapret();
+
+handled_pagefault:
+  if(killed(p))
+    exit(-1);
+  if(which_dev == 2)
+    yield();
   usertrapret();
 }
 
