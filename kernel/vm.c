@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -315,7 +317,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  //char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -324,12 +326,20 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+
+    if(flags & PTE_W){
+      *pte = PA2PTE(pa) | (flags & ~PTE_W) | PTE_COW | PTE_V;
+
+      if(mappages(new, i, PGSIZE, pa, (flags & ~PTE_W) | PTE_COW) != 0){
+        goto err;
+      }
+      ref_increment((void*)pa);
+    } else {
+      // map to read only
+      if(mappages(new, i, PGSIZE, pa, flags) != 0){
+        goto err;
+      }
+      ref_increment((void*)pa);
     }
   }
   return 0;
@@ -360,15 +370,34 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
   pte_t *pte;
+  char *mem;
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
       return -1;
     pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
-       (*pte & PTE_W) == 0)
+    if(pte == 0)
       return -1;
+
+    if(((*pte & PTE_V) == 0) || ((*pte & PTE_U) == 0))
+      return -1;
+
+    if((*pte & PTE_COW)){
+      mem = kalloc();
+      uint64 oldpa = PTE2PA(*pte);
+      memmove(mem, (char*)oldpa, PGSIZE);
+      kfree((void*)oldpa);
+
+      uint flags = PTE_FLAGS(*pte);
+      flags &= ~PTE_COW;
+      flags |= PTE_W;
+      *pte = PA2PTE((uint64)mem) | flags | PTE_V;
+    }
+    else if((PTE_FLAGS(*pte) & PTE_W) == 0){
+      return -1;
+    }
+
     pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)

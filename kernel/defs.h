@@ -63,6 +63,9 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+// increment/decrement/get reference count for a physical page
+void            ref_increment(void *);
+int             get_ref_count(void *);
 
 // log.c
 void            initlog(int, struct superblock*);

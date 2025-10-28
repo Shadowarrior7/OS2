@@ -68,9 +68,44 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
-    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
-    setkilled(p);
+    // COW COW COW
+    uint64 scause = r_scause();
+    if(scause == 15 || scause == 13){
+      uint64 va = r_stval();
+      // reject addresses outside user space
+      if(va >= MAXVA){
+        setkilled(p);
+      } else {
+        uint64 a = PGROUNDDOWN(va);
+        pte_t *pte = walk(p->pagetable, a, 0);
+
+      if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0){
+        setkilled(p);
+      } else if((*pte & PTE_COW)){
+
+        char *mem = kalloc();
+        if(mem == 0){
+          setkilled(p);
+        } else {
+          uint64 pa = PTE2PA(*pte);
+          memmove(mem, (char*)pa, PGSIZE);
+          kfree((void*)pa);
+          uint flags = PTE_FLAGS(*pte);
+          flags &= ~PTE_COW;
+          flags |= PTE_W;
+          *pte = PA2PTE((uint64)mem) | flags | PTE_V;
+
+        }
+      } else {
+        printf("sad cow");
+        setkilled(p);
+      }
+    }
+    } else {
+      printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+      setkilled(p);
+    }
   }
 
   if(killed(p))
