@@ -1,6 +1,6 @@
 //
 // endianness support
-//
+// 
 
 static inline uint16 bswaps(uint16 val)
 {
